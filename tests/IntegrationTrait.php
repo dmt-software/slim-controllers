@@ -2,13 +2,14 @@
 
 namespace DMT\Test\Slim\Controller;
 
-use DMT\DependencyInjection\Container;
 use DMT\DependencyInjection\ContainerFactory;
-use DMT\Slim\Controller\ControllerServiceProvider;
+use DMT\Slim\Controller\Handlers\Strategies\FunctionParameters;
+use DMT\Slim\Controller\ServiceProviders\ControllerMapperProvider;
 use Pimple\Container as PimpleContainer;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Slim\App;
 use Slim\Factory\AppFactory;
+use Spiral\Attributes\Reader;
 
 /**
  * @group integration
@@ -19,14 +20,17 @@ trait IntegrationTrait
     public function getApp(): App
     {
         $container = (new ContainerFactory())->createContainer(new PimpleContainer());
-        $application = AppFactory::create(container: $container);
+        $app = AppFactory::create(container: $container);
 
-        $container->set(id: App::class, value: fn() => $application);
-        $container->set(id: ResponseFactoryInterface::class, value: fn() => $application->getResponseFactory());
-        $container->register(provider: new ControllerServiceProvider(__DIR__ . '/../tests'));
+        $container->set(id: App::class, value: fn() => $app);
+        $container->set(id: ResponseFactoryInterface::class, value: fn() => $app->getResponseFactory());
+        $container->register(provider: new ControllerMapperProvider($app));
 
         $this->expectOutputRegex('~.*~');
 
-        return $application;
+        $routeCollector = $app->getRouteCollector();
+        $routeCollector->setDefaultInvocationStrategy(new FunctionParameters());
+
+        return $app;
     }
 }
